@@ -127,4 +127,4 @@ for cat in PRODUCT_CATEGORIES:
         url_product = URL_BASE + product
         product_details[product] = get_product_details(url_product, cat)
 
-x = 1
+x = 1 ## debug
