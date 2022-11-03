@@ -25,17 +25,17 @@ PRODUCT_CATEGORIES = [
     # 'vlees-kip-vis-vega',
     # 'kaas-vleeswaren-tapas',
     # 'zuivel-plantaardig-en-eieren',
-    'bakkerij-en-banket',
-    # 'ontbijtgranen-en-beleg',
-    # 'snoep-koek-chips-en-chocolade',
-    # 'tussendoortjes',
-    # 'frisdrank-sappen-koffie-thee',
-    # # 'wijn-en-bubbels',
-    # # 'bier-en-aperitieven',
-    # 'pasta-rijst-en-wereldkeuken',
-    # 'soepen-sauzen-kruiden-olie',
-    # 'sport-en-dieetvoeding',
-    # 'diepvries'
+    # 'bakkerij-en-banket',
+    'ontbijtgranen-en-beleg',
+    'snoep-koek-chips-en-chocolade',
+    'tussendoortjes',
+    'frisdrank-sappen-koffie-thee',
+    # 'wijn-en-bubbels',
+    # 'bier-en-aperitieven',
+    'pasta-rijst-en-wereldkeuken',
+    'soepen-sauzen-kruiden-olie',
+    'sport-en-dieetvoeding',
+    'diepvries'
 ]
 COL_MAPPING = {
     'Category': 'Category',
@@ -204,43 +204,54 @@ def create_raw_CSV(cat, product_details, col_mapping, data_dir):
 
 
 def get_subtitle_unit_amount(subtitle, price):
-    if 'per stuk' in subtitle.lower() or 'per pakket' in subtitle.lower() or 'stuks' in subtitle.lower() or 'per pakker' in subtitle.lower() or 'tros' in subtitle.lower() or 'per bos' in subtitle.lower() or 'per bosje' in subtitle.lower() or 'per krop' in subtitle.lower() or 'los per' in subtitle.lower() or 'per kilo' in subtitle.lower():
-        if 'prijs per kg' in subtitle.lower():
-            # try to estimate amount based on price/kg subtitle
-            price_kg = float(subtitle[subtitle.rfind("€") + 2:len(subtitle) - 1].replace(",", "."))
-            amount = 1000 * price / price_kg
-            unit = 'g'
-        elif 'prijs per lt' in subtitle.lower():
-            # try to estimate amount based on price/LT subtitle
-            price_l = float(subtitle[subtitle.rfind("€") + 2:len(subtitle) - 1].replace(",", "."))
-            amount = 1000 * price / price_l
-            unit = 'ml'
-        else:
-            amount = None
-            unit = None
+    # try to estimate amount based on price/kg or price/lt subtitle:
+    amount_estimatable = True
+    if 'prijs per kg' in subtitle.lower():
+        price_kg = float(subtitle[subtitle.rfind("€") + 2:len(subtitle) - 1].replace(",", "."))
+        amount_estimated = 1000 * price / price_kg
+        unit = 'g'
+    elif 'prijs per lt' in subtitle.lower():
+        price_l = float(subtitle[subtitle.rfind("€") + 2:len(subtitle) - 1].replace(",", "."))
+        amount_estimated = 1000 * price / price_l
+        unit = 'ml'
     else:
-        dict_unit_position = {
-            'g': subtitle.find("g"),
-            'kg': subtitle.find("kg"),
-            'l': subtitle.find("l"),
-            'cl': subtitle.find("cl"),
-            'ml': subtitle.find("ml"),
-            'kilogram': subtitle.find("kilogram"),
-            'g_omitted': subtitle.find("Prijs")
-        }
-        # Find unit that occurs earliest in string:
-        unit = 'g'  # initialize with g as default
-        unit_position = 99  # initialize
-        for unit_i in dict_unit_position:
-            if -1 < dict_unit_position[unit_i] <= unit_position:
-                unit_position = dict_unit_position[unit_i]
-                unit = unit_i
+        amount_estimatable = False
+
+    # Try to find amount and unit in subtitle:
+    dict_unit_position = {
+        'g': subtitle.find("g"),
+        'kg': subtitle.find("kg"),
+        'l': subtitle.find("l"),
+        'cl': subtitle.find("cl"),
+        'ml': subtitle.find("ml"),
+        'kilogram': subtitle.find("kilogram")
+    }
+    # In some cases the unit is omitted in the subtitle (e.g 1,22Prijs...)
+    if re.search('[\d]Prijs',subtitle) is not None:
+        dict_unit_position['g_omitted'] = re.search('[\d]Prijs',subtitle).start() + 1
+    else:
+        dict_unit_position['g_omitted'] = -1
+    # Find unit that occurs earliest in string:
+    unit_position = 99  # initialize
+    for unit_i in dict_unit_position:
+        if -1 < dict_unit_position[unit_i] <= unit_position:
+            unit_position = dict_unit_position[unit_i]
+            unit = unit_i
+    if unit_position < 99:  # if a unit was found:
         amount_str = subtitle[0:unit_position].replace(',', '.').replace('ca.', '').replace('ca', '')
         if 'x' in amount_str:  # e.g 10 x 7 ml
             amount = float(amount_str.split('x')[0]) * float(amount_str.split('x')[1])
+            unit_available = True
+        elif amount_str.replace('.','').replace(' ','').isnumeric():
+                amount = float(amount_str)  # check if is numeric!!
+                unit_available = True
         else:
-            amount = float(amount_str) #check if is numeric!!
-        # Convert units to g/ml
+            unit_available = False
+    else:  # no unit found
+        unit_available = False
+
+    if unit_available:
+        # Convert units to g or ml
         dict_unit_conversion = {
             'g': ('g', 1),
             'kg': ('g', 1000),
@@ -252,6 +263,12 @@ def get_subtitle_unit_amount(subtitle, price):
         }
         amount = amount * dict_unit_conversion[unit][1]
         unit = dict_unit_conversion[unit][0]
+    elif amount_estimatable: # if no unit is found, estimate amount from price and price/kg
+        amount = amount_estimated
+    else:
+        amount = None
+        unit = None
+    # if 'per stuk' in subtitle.lower() or 'per pakket' in subtitle.lower() or 'stuks' in subtitle.lower() or 'per pakker' in subtitle.lower() or 'tros' in subtitle.lower() or 'per bos' in subtitle.lower() or 'per bosje' in subtitle.lower() or 'per krop' in subtitle.lower() or 'los per' in subtitle.lower() or 'per kilo' in subtitle.lower():
     return unit, amount
 
 
