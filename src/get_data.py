@@ -16,26 +16,26 @@ URL_BASE = 'https://www.ah.nl'
 TIMER = 0.25  # waiting time in seconds between each request to avoid being blocked by server
 PRODUCT_CATEGORIES = [
     # 'aardappel-groente-fruit', # split category into 5 to work around page limit
-    'aardappel-groente-fruit?kenmerk=nutriscore%3Aa',
-    'aardappel-groente-fruit?kenmerk=nutriscore%3Ab',
-    'aardappel-groente-fruit?kenmerk=nutriscore%3Ac',
-    'aardappel-groente-fruit?kenmerk=nutriscore%3Ad',
-    'aardappel-groente-fruit?kenmerk=nutriscore%3Ae',
-    'salades-pizza-maaltijden',
-    'vlees-kip-vis-vega',
-    'kaas-vleeswaren-tapas',
-    'zuivel-plantaardig-en-eieren',
+    # 'aardappel-groente-fruit?kenmerk=nutriscore%3Aa',
+    # 'aardappel-groente-fruit?kenmerk=nutriscore%3Ab',
+    # 'aardappel-groente-fruit?kenmerk=nutriscore%3Ac',
+    # 'aardappel-groente-fruit?kenmerk=nutriscore%3Ad',
+    # 'aardappel-groente-fruit?kenmerk=nutriscore%3Ae',
+    # 'salades-pizza-maaltijden',
+    # 'vlees-kip-vis-vega',
+    # 'kaas-vleeswaren-tapas',
+    # 'zuivel-plantaardig-en-eieren',
     'bakkerij-en-banket',
-    'ontbijtgranen-en-beleg',
-    'snoep-koek-chips-en-chocolade',
-    'tussendoortjes',
-    'frisdrank-sappen-koffie-thee',
-    # 'wijn-en-bubbels',
-    # 'bier-en-aperitieven',
-    'pasta-rijst-en-wereldkeuken',
-    'soepen-sauzen-kruiden-olie',
-    'sport-en-dieetvoeding',
-    'diepvries'
+    # 'ontbijtgranen-en-beleg',
+    # 'snoep-koek-chips-en-chocolade',
+    # 'tussendoortjes',
+    # 'frisdrank-sappen-koffie-thee',
+    # # 'wijn-en-bubbels',
+    # # 'bier-en-aperitieven',
+    # 'pasta-rijst-en-wereldkeuken',
+    # 'soepen-sauzen-kruiden-olie',
+    # 'sport-en-dieetvoeding',
+    # 'diepvries'
 ]
 COL_MAPPING = {
     'Category': 'Category',
@@ -45,6 +45,7 @@ COL_MAPPING = {
     'NutriScore': 'NutriScore',
     'Vegan': 'Vegan',
     'Vegetarian': 'Vegetarian',
+    'Url': 'Url',
     'Alcohol': 'Alcohol',
     'Calcium': 'Calcium',
     'Eiwitten': 'Protein',
@@ -203,12 +204,17 @@ def create_raw_CSV(cat, product_details, col_mapping, data_dir):
 
 
 def get_subtitle_unit_amount(subtitle, price):
-    if 'per stuk' in subtitle:
-        # If product is sold per unit (stuk), try to estimate amount based on price/kg subtitle
-        if 'Prijs per KG' in subtitle:
+    if 'per stuk' in subtitle.lower() or 'per pakket' in subtitle.lower() or 'stuks' in subtitle.lower() or 'per pakker' in subtitle.lower() or 'tros' in subtitle.lower() or 'per bos' in subtitle.lower() or 'per bosje' in subtitle.lower() or 'per krop' in subtitle.lower() or 'los per' in subtitle.lower() or 'per kilo' in subtitle.lower():
+        if 'prijs per kg' in subtitle.lower():
+            # try to estimate amount based on price/kg subtitle
             price_kg = float(subtitle[subtitle.rfind("€") + 2:len(subtitle) - 1].replace(",", "."))
-            amount = price / price_kg
+            amount = 1000 * price / price_kg
             unit = 'g'
+        elif 'prijs per lt' in subtitle.lower():
+            # try to estimate amount based on price/LT subtitle
+            price_l = float(subtitle[subtitle.rfind("€") + 2:len(subtitle) - 1].replace(",", "."))
+            amount = 1000 * price / price_l
+            unit = 'ml'
         else:
             amount = None
             unit = None
@@ -217,7 +223,10 @@ def get_subtitle_unit_amount(subtitle, price):
             'g': subtitle.find("g"),
             'kg': subtitle.find("kg"),
             'l': subtitle.find("l"),
-            'ml': subtitle.find("ml")
+            'cl': subtitle.find("cl"),
+            'ml': subtitle.find("ml"),
+            'kilogram': subtitle.find("kilogram"),
+            'g_omitted': subtitle.find("Prijs")
         }
         # Find unit that occurs earliest in string:
         unit = 'g'  # initialize with g as default
@@ -226,15 +235,32 @@ def get_subtitle_unit_amount(subtitle, price):
             if -1 < dict_unit_position[unit_i] <= unit_position:
                 unit_position = dict_unit_position[unit_i]
                 unit = unit_i
-        amount = float(subtitle[0:unit_position].replace(',', '.'))
+        amount_str = subtitle[0:unit_position].replace(',', '.').replace('ca.', '').replace('ca', '')
+        if 'x' in amount_str:  # e.g 10 x 7 ml
+            amount = float(amount_str.split('x')[0]) * float(amount_str.split('x')[1])
+        else:
+            amount = float(amount_str) #check if is numeric!!
+        # Convert units to g/ml
+        dict_unit_conversion = {
+            'g': ('g', 1),
+            'kg': ('g', 1000),
+            'l': ('ml', 1000),
+            'cl': ('ml', 10),
+            'ml': ('ml', 1),
+            'kilogram': ('g', 1000),
+            'g_omitted': ('g', 1)
+        }
+        amount = amount * dict_unit_conversion[unit][1]
+        unit = dict_unit_conversion[unit][0]
     return unit, amount
 
 
 def get_weight(label):
-    if label == 'nan':
+    if pd.isna(label):
         weight = None
     else:
-        weight = float(label.replace('mg', '').replace('g', ''))
+        label_trim = label.replace('mg', '').replace('g', '').replace('<', '')  # assumption: '<0.1g' becomes 0.1
+        weight = float(label_trim)
     return weight
 
 
@@ -244,16 +270,18 @@ def create_processed_CSV(data_dir_raw, data_dir_processed):
         file = os.path.join(data_dir_raw, filename)
         df_raw = pd.concat([df_raw,pd.read_csv(file)], ignore_index=True)
     df = pd.DataFrame()
-    df['Product'] = df_raw['Product']
-    df['Price'] = df_raw['Price']
-    df['Amount'] = df_raw.apply(lambda x: get_subtitle_unit_amount(x['Subtitle'], x['Price'])[1], axis=1)
-    df['Unit'] = df_raw.apply(lambda x: get_subtitle_unit_amount(x['Subtitle'], x['Price'])[0], axis=1)
-    df['Vegan'] = df_raw['Vegan']
-    df['Vegetarian'] = df_raw['Vegetarian']
-    df['NutriScore'] = df_raw['NutriScore']
-    df['Carbohydrates'] = df_raw['Carbohydrates'].apply(lambda x: get_weight(x))
-    df['Protein'] = df_raw['Protein'].apply(lambda x: get_weight(x))
-    df['Fat'] = df_raw['Fat'].apply(lambda x: get_weight(x))
+    df['product'] = df_raw['Product']
+    df['url'] = df_raw['Url']
+    df['category'] = df_raw['Category']
+    df['price'] = df_raw['Price']
+    df['amount'] = df_raw.apply(lambda x: get_subtitle_unit_amount(x['Subtitle'], x['Price'])[1], axis=1)
+    df['unit'] = df_raw.apply(lambda x: get_subtitle_unit_amount(x['Subtitle'], x['Price'])[0], axis=1)
+    df['vegan'] = df_raw['Vegan']
+    df['vegetarian'] = df_raw['Vegetarian']
+    df['nutriscore'] = df_raw['NutriScore'].apply(lambda x: None if pd.isna(x) else x.lstrip('Nutri-Score '))
+    df['carbs_100g'] = df_raw['Carbohydrates'].apply(lambda x: get_weight(x))
+    df['protein_100g'] = df_raw['Protein'].apply(lambda x: get_weight(x))
+    df['fat_100g'] = df_raw['Fat'].apply(lambda x: get_weight(x))
     df.to_csv(data_dir_processed, index=False)
 
 
