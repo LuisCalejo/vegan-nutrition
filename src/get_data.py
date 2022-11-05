@@ -15,17 +15,17 @@ URL_PRODUCTS = 'https://www.ah.nl/producten'
 URL_BASE = 'https://www.ah.nl'
 TIMER = 0.25  # waiting time in seconds between each request to avoid being blocked by server
 PRODUCT_CATEGORIES = [
-    # 'aardappel-groente-fruit', # split category into 5 to work around page limit
-    # 'aardappel-groente-fruit?kenmerk=nutriscore%3Aa',
-    # 'aardappel-groente-fruit?kenmerk=nutriscore%3Ab',
-    # 'aardappel-groente-fruit?kenmerk=nutriscore%3Ac',
-    # 'aardappel-groente-fruit?kenmerk=nutriscore%3Ad',
-    # 'aardappel-groente-fruit?kenmerk=nutriscore%3Ae',
-    # 'salades-pizza-maaltijden',
-    # 'vlees-kip-vis-vega',
-    # 'kaas-vleeswaren-tapas',
-    # 'zuivel-plantaardig-en-eieren',
-    # 'bakkerij-en-banket',
+    # 'aardappel-groente-fruit',  # split category into 5 to work around website page limit
+    'aardappel-groente-fruit?kenmerk=nutriscore%3Aa',
+    'aardappel-groente-fruit?kenmerk=nutriscore%3Ab',
+    'aardappel-groente-fruit?kenmerk=nutriscore%3Ac',
+    'aardappel-groente-fruit?kenmerk=nutriscore%3Ad',
+    'aardappel-groente-fruit?kenmerk=nutriscore%3Ae',
+    'salades-pizza-maaltijden',
+    'vlees-kip-vis-vega',
+    'kaas-vleeswaren-tapas',
+    'zuivel-plantaardig-en-eieren',
+    'bakkerij-en-banket',
     'ontbijtgranen-en-beleg',
     'snoep-koek-chips-en-chocolade',
     'tussendoortjes',
@@ -189,7 +189,7 @@ def get_product_details(url_product, cat):
     return product_details
 
 
-def create_raw_CSV(cat, product_details, col_mapping, data_dir):
+def create_raw_csv(cat, product_details, col_mapping, data_dir):
     # Map column names and create dataframe
     df = pd.DataFrame()
     col_data = dict()
@@ -240,10 +240,15 @@ def get_subtitle_unit_amount(subtitle, price):
     if unit_position < 99:  # if a unit was found:
         amount_str = subtitle[0:unit_position].replace(',', '.').replace('ca.', '').replace('ca', '')
         if 'x' in amount_str:  # e.g 10 x 7 ml
-            amount = float(amount_str.split('x')[0]) * float(amount_str.split('x')[1])
-            unit_available = True
-        elif amount_str.replace('.','').replace(' ','').isnumeric():
-                amount = float(amount_str)  # check if is numeric!!
+            amount_str1 = amount_str.split('x')[0]
+            amount_str2 = amount_str.split('x')[1]
+            if amount_str1.replace('.', '').replace(' ', '').isnumeric() and amount_str2.replace('.', '').replace(' ', '').isnumeric() :  # check if all characters are numeric
+                amount = float(amount_str.split('x')[0]) * float(amount_str.split('x')[1])
+                unit_available = True
+            else:
+                unit_available = False
+        elif amount_str.replace('.','').replace(' ','').isnumeric():  # check if all characters are numeric
+                amount = float(amount_str)
                 unit_available = True
         else:
             unit_available = False
@@ -316,7 +321,7 @@ for cat in PRODUCT_CATEGORIES:
         print('      ' + url_product)
         sleep(TIMER)
         product_details[product] = get_product_details(url_product, cat)
-    create_raw_CSV(cat, product_details, COL_MAPPING, DATA_DIR_RAW)
+    create_raw_csv(cat, product_details, COL_MAPPING, DATA_DIR_RAW)
     print("   Created Raw CSV for " + cat)
 print("Creating Processed CSV...")
 create_processed_CSV(DATA_DIR_RAW, DATA_DIR_PROCESSED)
