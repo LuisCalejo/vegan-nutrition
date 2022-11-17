@@ -314,8 +314,9 @@ def get_weight(label):
 def create_processed_CSV(data_dir_raw, data_dir_processed):
     df_raw = pd.DataFrame()
     for filename in os.listdir(data_dir_raw):
-        file = os.path.join(data_dir_raw, filename)
-        df_raw = pd.concat([df_raw,pd.read_csv(file)], ignore_index=True)
+        if '.csv' in filename:
+            file = os.path.join(data_dir_raw, filename)
+            df_raw = pd.concat([df_raw,pd.read_csv(file)], ignore_index=True)
     df = pd.DataFrame()
     df['product'] = df_raw['Product']
     df['url'] = df_raw['Url']
