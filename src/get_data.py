@@ -15,27 +15,45 @@ URL_PRODUCTS = 'https://www.ah.nl/producten'
 URL_BASE = 'https://www.ah.nl'
 TIMER = 0.25  # waiting time in seconds between each request to avoid being blocked by server
 PRODUCT_CATEGORIES = [
-    # 'aardappel-groente-fruit',  # split category into 5 to work around website page limit
-    'aardappel-groente-fruit?kenmerk=nutriscore%3Aa',
-    'aardappel-groente-fruit?kenmerk=nutriscore%3Ab',
-    'aardappel-groente-fruit?kenmerk=nutriscore%3Ac',
-    'aardappel-groente-fruit?kenmerk=nutriscore%3Ad',
-    'aardappel-groente-fruit?kenmerk=nutriscore%3Ae',
+    # 'aardappel-groente-fruit',  # split category to work around 1000 products per page limit
+    'aardappel-groente-fruit?minPrice=0&maxPrice=2.99',
+    'aardappel-groente-fruit?minPrice=3&maxPrice=99',
     'salades-pizza-maaltijden',
     'vlees-kip-vis-vega',
-    'kaas-vleeswaren-tapas',
-    'zuivel-plantaardig-en-eieren',
+    # 'kaas-vleeswaren-tapas', # split category to work around 1000 products per page limit
+    'kaas-vleeswaren-tapas?minPrice=0&maxPrice=2.99',
+    'kaas-vleeswaren-tapas?minPrice=3&maxPrice=99',
+    # 'zuivel-plantaardig-en-eieren', # split category to work around 1000 products per page limit
+    'zuivel-plantaardig-en-eieren?minPrice=0&maxPrice=3.99',
+    'zuivel-plantaardig-en-eieren?minPrice=4&maxPrice=99',
     'bakkerij-en-banket',
-    'ontbijtgranen-en-beleg',
+    # 'ontbijtgranen-en-beleg', # split category to work around 1000 products per page limit
+    'ontbijtgranen-en-beleg?minPrice=0&maxPrice=2.60',
+    'ontbijtgranen-en-beleg?minPrice=2.61&maxPrice=99',
     'snoep-koek-chips-en-chocolade',
     'tussendoortjes',
-    'frisdrank-sappen-koffie-thee',
-    # 'wijn-en-bubbels',
-    # 'bier-en-aperitieven',
-    'pasta-rijst-en-wereldkeuken',
-    'soepen-sauzen-kruiden-olie',
+    # 'frisdrank-sappen-koffie-thee', # exclude drinks
+    # 'wijn-en-bubbels', # exclude drinks
+    # 'bier-en-aperitieven', # exclude drinks
+    # 'pasta-rijst-en-wereldkeuken', # split category to work around 1000 products per page limit
+    'pasta-rijst-en-wereldkeuken?minPrice=0&maxPrice=1.99',
+    'pasta-rijst-en-wereldkeuken?minPrice=2&maxPrice=3.99',
+    'pasta-rijst-en-wereldkeuken?minPrice=4&maxPrice=99',
+    # 'soepen-sauzen-kruiden-olie', # split category to work around 1000 products per page limit
+    'soepen-sauzen-kruiden-olie?minPrice=0&maxPrice=1.79',
+    'soepen-sauzen-kruiden-olie?minPrice=1.80&maxPrice=2.99',
+    'soepen-sauzen-kruiden-olie?minPrice=3&maxPrice=99',
     'sport-en-dieetvoeding',
     'diepvries'
+]
+SPLIT_CATEGORIES = [
+    # product categories that had to be split due to website's 1000 product limit per page
+    'aardappel-groente-fruit',
+    'kaas-vleeswaren-tapas',
+    'zuivel-plantaardig-en-eieren',
+    'ontbijtgranen-en-beleg',
+    'pasta-rijst-en-wereldkeuken',
+    'soepen-sauzen-kruiden-olie'
 ]
 COL_MAPPING = {
     'Category': 'Category',
@@ -46,6 +64,7 @@ COL_MAPPING = {
     'Vegan': 'Vegan',
     'Vegetarian': 'Vegetarian',
     'Url': 'Url',
+    'Content': 'Content',
     'Alcohol': 'Alcohol',
     'Calcium': 'Calcium',
     'Eiwitten': 'Protein',
@@ -112,10 +131,11 @@ def get_product_categories(url):
 
 def get_products(url):
     product_urls = []
-    if 'aardappel-groente-fruit' in url:
-        page_sep = '&'
-    else:
-        page_sep = '?'
+    # Url pagination is different if filters are enabled, as in the split categories
+    page_sep = '?'
+    for prod in SPLIT_CATEGORIES:
+        if prod in url:
+            page_sep = '&'
     page = 50
     url_page = url + page_sep + 'page=' + str(page)
     res = requests.get(url_page)
@@ -186,6 +206,11 @@ def get_product_details(url_product, cat):
         else:
             product_details['Vegetarian'] = False
     product_details['Price'] = price
+    div_content_weight = soup.find_all("div", class_="product-info-content-block product-info-content-block--compact")
+    if div_content_weight:
+        content = div_content_weight[0].text
+        if 'inhoud en gewicht' in content.lower():
+            product_details['Content'] = content
     return product_details
 
 
@@ -297,6 +322,7 @@ def create_processed_CSV(data_dir_raw, data_dir_processed):
     df['category'] = df_raw['Category']
     df['price'] = df_raw['Price']
     df['amount'] = df_raw.apply(lambda x: get_subtitle_unit_amount(x['Subtitle'], x['Price'])[1], axis=1)
+    df['content'] = df_raw['Content']
     df['unit'] = df_raw.apply(lambda x: get_subtitle_unit_amount(x['Subtitle'], x['Price'])[0], axis=1)
     df['vegan'] = df_raw['Vegan']
     df['vegetarian'] = df_raw['Vegetarian']
