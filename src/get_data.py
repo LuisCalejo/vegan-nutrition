@@ -30,7 +30,10 @@ PRODUCT_CATEGORIES = [
     # 'ontbijtgranen-en-beleg', # split category to work around 1000 products per page limit
     'ontbijtgranen-en-beleg?minPrice=0&maxPrice=2.60',
     'ontbijtgranen-en-beleg?minPrice=2.61&maxPrice=99',
-    'snoep-koek-chips-en-chocolade',
+    # 'snoep-koek-chips-en-chocolade',  # split category to work around 1000 products per page limit
+    'snoep-koek-chips-en-chocolade?minPrice=0&maxPrice=1.89',
+    'snoep-koek-chips-en-chocolade?minPrice=1.90&maxPrice=2.59',
+    'snoep-koek-chips-en-chocolade?minPrice=2.60&maxPrice=99',
     'tussendoortjes',
     # 'frisdrank-sappen-koffie-thee', # exclude drinks
     # 'wijn-en-bubbels', # exclude drinks
@@ -53,7 +56,8 @@ SPLIT_CATEGORIES = [
     'zuivel-plantaardig-en-eieren',
     'ontbijtgranen-en-beleg',
     'pasta-rijst-en-wereldkeuken',
-    'soepen-sauzen-kruiden-olie'
+    'soepen-sauzen-kruiden-olie',
+    'snoep-koek-chips-en-chocolade'
 ]
 COL_MAPPING = {
     'Category': 'Category',
@@ -331,6 +335,7 @@ def create_processed_CSV(data_dir_raw, data_dir_processed):
     df['carbs_100g'] = df_raw['Carbohydrates'].apply(lambda x: get_weight(x))
     df['protein_100g'] = df_raw['Protein'].apply(lambda x: get_weight(x))
     df['fat_100g'] = df_raw['Fat'].apply(lambda x: get_weight(x))
+    df['alcohol_100g'] = df_raw['Alcohol'].apply(lambda x: get_weight(x))
     df.to_csv(data_dir_processed, index=False)
 
 
