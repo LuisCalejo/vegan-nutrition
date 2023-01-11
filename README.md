@@ -13,7 +13,7 @@ In this repository you can find:
 
 Link to YouTube video below:
 
-[![](/Users/luis/Git/vegan-nutrition/images/Thumbnail.png)](https://youtu.be/mJs8L3oSmak)
+[![](images/Thumbnail.png)](https://youtu.be/mJs8L3oSmak)
 https://youtu.be/mJs8L3oSmak
 
 
