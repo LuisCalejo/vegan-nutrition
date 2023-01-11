@@ -1,6 +1,6 @@
 # Is vegan food cheap? I analyzed 11000 foods to find out
 
-In this video I analyzed the price and nutritional facts of 11000 products of a Dutch supermarket (Albert Heijn) and tried to determine if vegan food is cheaper than animal-based food.
+In this video for the YouTube channel Memeable Data, I analyzed the price and nutritional facts of 11000 products of a Dutch supermarket (Albert Heijn) and tried to determine if vegan food is cheaper than animal-based food.
 
 The conclusions were:
 * Vegan food generally has the cheapest sources of calories and protein
