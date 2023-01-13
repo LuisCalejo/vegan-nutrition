@@ -4,7 +4,7 @@ In this video for the YouTube channel Memeable Data, I analyzed the price and nu
 
 The conclusions were:
 * Vegan food generally has the cheapest sources of calories and protein
-* However, for certain macronutrient requirements (e.g high protein or low carb percentage) the cheapest sources of protein are actually animal-based
+* However, for certain macronutrient requirements (e.g high protein or low carb percentage) the cheapest sources of protein can be animal-based
 
 In this repository you can find:
 * Data with the nutritional facts of Albert Heijn's products
